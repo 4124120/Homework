@@ -4,14 +4,41 @@
 
 ## 解題說明
 
-本題要求撰寫一個遞迴函數來計算這個函數的值，和撰寫一個非遞迴演算法來計算 Ackermann 函數。
+你需要完成 Polynomial 類別，其功能包含：
+
+(1)多項式的表示與儲存（係數與指數）
+
+(2)建構多項式物件（預設為 0）
+
+(3)加法與乘法操作（Add / Mult）
+
+(4)給定 x 值，求多項式的結果（Eval）
+
+(5)重載 << 和 >>，方便輸入與輸出
 
 ### 解題策略
 
-1. 先實作「簡單的遞迴」確認邏輯正確。
-2. 再設計「非遞迴」版本，利用 stack 模擬遞迴呼叫流程。  
-3. 測試小數字，再測試極限輸入值。
-4. 比較執行時間與效能差異。
+1. 資料結構設計：
+   
+   使用 Term 結構儲存一項（包含 coef、exp）。
+
+   使用 Term* termArray 儲存多項式所有項。
+
+   使用 capacity 控制 termArray 大小；terms 表示目前有效項數。
+2. 核心功能實作：
+
+   Add：兩個有序陣列合併（類似 merge sort）。
+
+   Mult：雙層迴圈乘法後合併同指數項。
+
+   Eval：逐項代入 x 並加總。
+
+   輸入輸出：使用 operator>> 和 operator<< 重載。
+3. 記憶體管理：
+   
+   建構子初始化 termArray。
+
+   解構子釋放記憶體。
 
 ## 程式實作
 
@@ -19,86 +46,171 @@
 
 ```cpp
 #include <iostream>
+#include <cmath>
 using namespace std;
 
-// 遞迴版 Ackermann 函數
-int ackermann_recursive(int m, int n) {
-    if (m == 0)
-        return n + 1;
-    else if (n == 0)
-        return ackermann_recursive(m - 1, 1);
-    else
-        return ackermann_recursive(m - 1, ackermann_recursive(m, n - 1));
-}
+class Polynomial;
 
-int main() {
-    int m, n;
-    cout << "請輸入 m 與 n：";
-    cin >> m >> n;
+class Term {
+    friend class Polynomial;
+private:
+    float coef;  // coefficient
+    int exp;     // exponent
+};
 
-    int result = ackermann_recursive(m, n);
-    cout << "Ackermann(" << m << ", " << n << ") = " << result << endl;
+class Polynomial {
+private:
+    Term* termArray;
+    int capacity;
+    int terms;
 
-    return 0;
-}
-```
-
-```
-#include <iostream>
-#include <stack>
-using namespace std;
-
-// 非遞迴版 Ackermann 函數，使用 stack 模擬遞迴
-int ackermann_nonrecursive(int m, int n) {
-    stack<int> s;
-    s.push(m);
-
-    while (!s.empty()) {
-        m = s.top();
-        s.pop();
-
-        if (m == 0) {
-            n = n + 1;
-        } else if (n == 0) {
-            s.push(m - 1);
-            n = 1;
-        } else {
-            s.push(m - 1);
-            s.push(m);
-            n = n - 1;
+    void NewTerm(float c, int e) {
+        if (terms == capacity) {
+            capacity *= 2;
+            Term* temp = new Term[capacity];
+            for (int i = 0; i < terms; ++i)
+                temp[i] = termArray[i];
+            delete[] termArray;
+            termArray = temp;
         }
+        termArray[terms].coef = c;
+        termArray[terms++].exp = e;
     }
 
-    return n;
-}
+public:
+    Polynomial(int cap = 10) {
+        capacity = cap;
+        terms = 0;
+        termArray = new Term[capacity];
+    }
 
-int main() {
-    int m, n;
-    cout << "請輸入 m 與 n：";
-    cin >> m >> n;
+    ~Polynomial() {
+        delete[] termArray;
+    }
 
-    int result = ackermann_nonrecursive(m, n);
-    cout << "Ackermann(" << m << ", " << n << ") = " << result << endl;
+    Polynomial Add(Polynomial b) {
+        Polynomial c;
+        int aPos = 0, bPos = 0;
+        while (aPos < terms && bPos < b.terms) {
+            if (termArray[aPos].exp == b.termArray[bPos].exp) {
+                float sum = termArray[aPos].coef + b.termArray[bPos].coef;
+                if (sum != 0)
+                    c.NewTerm(sum, termArray[aPos].exp);
+                aPos++, bPos++;
+            } else if (termArray[aPos].exp > b.termArray[bPos].exp) {
+                c.NewTerm(termArray[aPos].coef, termArray[aPos].exp);
+                aPos++;
+            } else {
+                c.NewTerm(b.termArray[bPos].coef, b.termArray[bPos].exp);
+                bPos++;
+            }
+        }
 
-    return 0;
-}
+        for (; aPos < terms; aPos++)
+            c.NewTerm(termArray[aPos].coef, termArray[aPos].exp);
+        for (; bPos < b.terms; bPos++)
+            c.NewTerm(b.termArray[bPos].coef, b.termArray[bPos].exp);
+        return c;
+    }
+
+    Polynomial Mult(Polynomial b) {
+        Polynomial c;
+        for (int i = 0; i < terms; i++) {
+            for (int j = 0; j < b.terms; j++) {
+                float coef = termArray[i].coef * b.termArray[j].coef;
+                int exp = termArray[i].exp + b.termArray[j].exp;
+                bool found = false;
+
+                for (int k = 0; k < c.terms; k++) {
+                    if (c.termArray[k].exp == exp) {
+                        c.termArray[k].coef += coef;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) c.NewTerm(coef, exp);
+            }
+        }
+        return c;
+    }
+
+    float Eval(float f) {
+        float result = 0;
+        for (int i = 0; i < terms; i++) {
+            result += termArray[i].coef * pow(f, termArray[i].exp);
+        }
+        return result;
+    }
+
+    friend istream& operator>>(istream& in, Polynomial& p) {
+        cout << "Enter number of terms: ";
+        in >> p.terms;
+        p.termArray = new Term[p.terms];
+        for (int i = 0; i < p.terms; i++) {
+            cout << "Enter coef and exp: ";
+            in >> p.termArray[i].coef >> p.termArray[i].exp;
+        }
+        return in;
+    }
+
+    friend ostream& operator<<(ostream& out, Polynomial& p) {
+        for (int i = 0; i < p.terms; i++) {
+            out << p.termArray[i].coef << "x^" << p.termArray[i].exp;
+            if (i != p.terms - 1)
+                out << " + ";
+        }
+        return out;
+    }
+};
+
 ```
 ## 效能分析
 
-1. 時間複雜度：O(n)，其中 n 為 nums 陣列的長度。
-2. 空間複雜度：O(1)，為常數空間。
+| 函數 | 時間複雜度 | 空間複雜度 | 分析說明 |
+|----------|--------------|----------|----------|
+| Add()  | O(n + m)     | O(n + m)        | 對兩個有序多項式進行合併，相當於 merge，最多產生 n + m 項結果。        |
+| Mult()   | O(n × m)      | O(n × m)（最壞）        | 兩兩項相乘會產生 n × m 項，再合併同次方，最壞情況是所有次方不同。        |
+| Eval(f)   | O(n)       | O(1)        | 每項都需做一次次方與乘法加總；空間上只需常數變數儲存結果與中間值。        |
+| NewTerm()   | O(n)（擴容時）      | O(n)       | 若 termArray 滿，則需動態分配 2 倍大小，並複製所有項；否則是 O(1)       |
+| operator>>   | O(n)     | O(n) | 使用者輸入 n 個項目時需建立新陣列儲存。 |
+| Eval(f)   | O(n)       | O(1)        | 逐項輸出每個 term，不需額外儲存。        |
    
 ## 測試與驗證
 
 ### 測試案例
 
-| 測試案例 | 輸入m n | 預期輸出 | 實際輸出 |
-|----------|--------------|----------|----------|
-| 測試一   | 0 0     | 1        | 1        |
-| 測試二   | 1 2      | 4        | 4        |
-| 測試三   | 2 2       | 7        | 7        |
-| 測試四   | 3 2      | 29       | 29       |
-| 測試五   | 4 1     | 程式在 8 秒後錯誤結束，錯誤碼為 3221225725 | 程式在 8 秒後錯誤結束，錯誤碼為 3221225725 |
+```cpp
+int main() {
+    Polynomial p1, p2;
+    cout << "Enter first polynomial:\n";
+    cin >> p1;
+    cout << "Enter second polynomial:\n";
+    cin >> p2;
+
+    Polynomial sum = p1.Add(p2);
+    Polynomial prod = p1.Mult(p2);
+
+    cout << "P1: " << p1 << endl;
+    cout << "P2: " << p2 << endl;
+    cout << "Sum: " << sum << endl;
+    cout << "Product: " << prod << endl;
+
+    float x = 2.0;
+    cout << "P1(" << x << ") = " << p1.Eval(x) << endl;
+}
+```
+預期輸出
+
+P1: 3x^2 + 2x^1
+
+P2: 1x^2 + 4x^0
+
+Sum: 4x^2 + 2x^1 + 4x^0
+
+Product: 3x^4 + 2x^3 + 12x^2 + 8x^1
+
+P1(2) = 16
+
 
 ### 編譯與執行指令
 
@@ -113,201 +225,102 @@ g++ ackermann_nonrecursive.cpp -o ack_nr
 
 ```
 
-### 結論
-
-1. 遞迴版若 m 與 n 較大，會造成 stack overflow。  
-2. 非遞迴版可以處理更深層數，但運算時間仍會爆炸成長。  
-3. 測試 m ≤ 3，n ≤ 5。
-
 ## 申論及開發報告
 
 ### 使用的資料結構與演算法說明
 
 
-1. **遞迴版 Ackermann 函數**  
-   ```cpp
-   int ackermann_recursive(int m, int n) {
-    if (m == 0)
-        return n + 1;
-    else if (n == 0)
-        return ackermann_recursive(m - 1, 1);
-    else
-        return ackermann_recursive(m - 1, ackermann_recursive(m, n - 1));
-   }
-   ```
-   使用的演算法：純遞迴，符合數學定義
+一、使用的資料結構
+
+(1)  結構化資料：Term 結構
+   
+       說明：每一項多項式由一個 Term 物件表示。
+
+       欄位：
+
+       float coef：係數（Coefficient）
+
+       int exp：指數（Exponent）
+
+       用途：便於儲存及操作多項式的每一項，例如：3x² 的 coef = 3，exp = 2。
+
+(2)  動態陣列：Term* termsArray
+   
+       說明：使用動態記憶體配置的陣列來儲存所有項。
+
+       優點：
+
+       可動態擴充項數，節省記憶體。
+
+       便於實作合併（加法）、搜尋、輸出等功能。
     
-   程式簡潔，邏輯清楚
-     使用 if-else 直接實作數學公式。
-     每一層呼叫對應數學公式的一層嵌套。
+       注意事項：需控制容量與記憶體釋放以避免記憶體洩漏。
 
-   缺點：容易爆堆疊
-     例如 A(4,1) 就需要數千次遞迴，容易導致 stack overflow 錯誤。
+(3)  類別包裝：Polynomial 類別
+   
+       屬性：
 
-2. **非遞迴版 Ackermann 函數**  
-   ```cpp
-   int ackermann_nonrecursive(int m, int n) {
-    stack<int> s;
-    s.push(m);
-    while (!s.empty()) {
-        m = s.top(); s.pop();
-        if (m == 0) {
-            n = n + 1;
-        } else if (n == 0) {
-            s.push(m - 1);
-            n = 1;
-        } else {
-            s.push(m - 1);
-            s.push(m);
-            n = n - 1;
-        }
-    }
-    return n;
-   }
+       int terms：實際項數
 
-   ```
-   使用的演算法：堆疊（Stack）模擬遞迴
+       int capacity：目前陣列容量
+
+       Term* termsArray：儲存所有項的指標
+
+       用途：封裝所有多項式邏輯操作，方便管理與擴充。
+
+二、使用的演算法
+
+(1)  多項式加法（Add() 方法） 
+
+    核心想法：類似合併排序中的 Merge 步驟。
+
+    流程：
+
+    初始化兩個指標 i, j 分別指向兩個多項式的第一項。
+
+    比較 exp 大小，較大者直接加入結果。
+
+    若 exp 相同，則合併係數後加入結果（若係數和非 0）。
+
+    繼續直到兩方都走完。
+
+    時間複雜度：O(n + m)（n 與 m 為兩個多項式的項數）
+
+(2)  新增項（newTerm() 方法）
+    用途：新增一項多項式項目至陣列。
+
+    流程：
+
+    檢查是否超出容量，若超出則擴充記憶體（double capacity）。
+
+    將新項加入 termsArray。
+
+    時間複雜度：O(1) 均攤（Amortized）
+
+(3)  多項式輸出（output() 方法）
+    用途：印出所有項次，格式化為數學表示。
+
+    演算法：依照陣列順序逐項印出，特別處理正負號與指數為 0 或 1 的情況。
+
+    時間複雜度：O(n)
+
+(4)  多項式求值（Eval() 方法）
+    用途：代入變數 x 值，求整體多項式的值。
+
+    演算法：
+
+    每一項套用公式：coef * pow(x, exp)
+
+    累加結果
+
+    時間複雜度：O(n)，但注意 pow() 本身時間複雜度為 O(log e)
     
-   模擬系統呼叫堆疊
-     使用 stack<int> 來模擬遞迴過程中函數的呼叫順序。
+三、
 
-   避免 Stack Overflow
-     對於較大 m, n 的輸入能更好地防止記憶體爆掉。
-
-   實作難度較高
-
-   
-   
-作業二
-
-## 解題說明
-
-本題要求輸入一個集合 S，請以遞迴方式計算其 Power Set，也就是所有子集合的集合。
-
-### 解題策略
-
-遞迴包含/不包含
-
-## 程式實作
-
-以下為主要程式碼：
-
-```cpp
-#include <iostream>
-#include <vector>
-
-using namespace std;
-
-// 遞迴函式
-void generatePowerSet(const vector<char>& set, vector< vector<char> >& result, vector<char>& current, int index) {
-    if (index == set.size()) {
-        result.push_back(current);
-        return;
-    }
-
-    // 不包含當前元素
-    generatePowerSet(set, result, current, index + 1);
-
-    // 包含當前元素
-    current.push_back(set[index]);
-    generatePowerSet(set, result, current, index + 1);
-    current.pop_back(); // 回溯
-}
-
-// 封裝函數
-vector< vector<char> > powerSet(const vector<char>& set) {
-    vector< vector<char> > result;
-    vector<char> current;
-    generatePowerSet(set, result, current, 0);
-    return result;
-}
-
-// 主程式
-int main() {
-    char arr[] = {'a', 'b', 'c'};
-    vector<char> input(arr, arr + 3);  // 用陣列轉 vector，兼容 C++98
-
-    vector< vector<char> > subsets = powerSet(input);
-
-    cout << "Power Set:\n";
-    for (int i = 0; i < subsets.size(); ++i) {
-        cout << "{";
-        for (int j = 0; j < subsets[i].size(); ++j) {
-            cout << subsets[i][j];
-        }
-        cout << "}\n";
-    }
-
-    return 0;
-}
-
-```
-
-## 效能分析
-
-1. 時間複雜度：O(2n) 子集合數量為 2^n，每個都需要構建。
-2. 空間複雜度：O(n⋅2 n) 儲存所有子集合（每個最多 n 元素）。
-   
-## 測試與驗證
-
-### 測試案例
-
-| 測試輸入| 輸出子集合數 | 子集合（部分） |
-|----------|--------------|----------|
-| { }   | 1     | { }       |
-| {'a'}   | 2      | { }  {'a'}      | 
-| {'a', 'b'}   | 4       | { }  {'a'} {'b'} {'a', 'b'}      | 
-| {'x', 'y', 'z'}  |8      | 共 8 種組合       | 
-
-### 編譯與執行指令
-
-```
-g++ -std=c++11 powerset.cpp -o powerset
-./powerse
-
-```
-
-## 申論及開發報告
-
-### 使用的資料結構與演算法說明
-
-1. 問題定義與需求說明
-
-   輸入格式：一個集合（例如 {'a', 'b', 'c'}）
-   
-   輸出格式：所有可能子集合，包含空集合與完整集合
-
-2. 使用的資料結構
-   
-   std::vector<char>：表示輸入集合
-   
-   std::vector< std::vector<char> >：儲存所有子集合
-
-   輔助變數 current（vector<char>）
-
-3. 使用的演算法：遞迴 + 回溯法
-
-   這是一個典型的遞迴樹狀結構問題，產生一棵二元遞迴決策樹
-```
-         []
-       /    \
-     [a]    []
-    /   \   /  \
-  [a,b] [a] [b] []
-```
-
-```
- [void generatePowerSet(set, result, current, index)
-    if index == set.size:
-        result.push_back(current)
-        return
-
-    // 不選擇當前元素
-    generatePowerSet(set, result, current, index + 1)
-
-    // 選擇當前元素
-    current.push_back(set[index])
-    generatePowerSet(set, result, current, index + 1)
-    current.pop_back() // 回溯
-
-```    
+| 設計原則 | 實作對應                     |
+| ---- | ------------------------ |
+| 資料封裝 | `Polynomial` 類別封裝所有操作與資料 |
+| 空間效率 | 使用動態陣列，避免固定大小浪費空間        |
+| 時間效率 | 採 Merge 策略進行加法，加快處理      |
+| 可擴充性 | 支援更多操作（如乘法、微分）可持續擴展      |
+    
