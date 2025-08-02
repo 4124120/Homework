@@ -33,12 +33,12 @@
 #include <cmath>
 using namespace std;
 
-class Polynomial; // Forward declaration
+class Polynomial; // forward declaration
 
 class Term {
     friend class Polynomial;
-    friend ostream& operator<<(ostream& os, Polynomial& x); // 👈 允許 operator<< 存取私有成員
-    friend istream& operator>>(istream& is, Polynomial& x); // 👈 允許 operator>> 存取私有成員
+    friend ostream& operator<<(ostream& os, Polynomial& x);
+    friend istream& operator>>(istream& is, Polynomial& x);
 private:
     int coef;
     int exp;
@@ -47,20 +47,19 @@ private:
 
 class Polynomial {
 public:
-    Polynomial();                                  // Constructor
-    Polynomial(const Polynomial& a);               // Copy Constructor
-    ~Polynomial();                                 // Destructor
-    const Polynomial& operator=(const Polynomial& a); // Assignment
-    Polynomial operator+(const Polynomial& b) const;   // Addition
-    Polynomial operator-(const Polynomial& b) const;   // Subtraction
-    Polynomial operator*(const Polynomial& b) const;   // Multiplication
-    float Evaluate(float x) const;                 // Evaluate
-    friend istream& operator>>(istream& is, Polynomial& x); // Input
-    friend ostream& operator<<(ostream& os, Polynomial& x); // Output
+    Polynomial();
+    Polynomial(const Polynomial& a);
+    ~Polynomial();
+    const Polynomial& operator=(const Polynomial& a);
+    Polynomial operator+(const Polynomial& b) const;
+    Polynomial operator-(const Polynomial& b) const;
+    Polynomial operator*(const Polynomial& b) const;
+    float Evaluate(float x) const;
+    friend istream& operator>>(istream& is, Polynomial& x);
+    friend ostream& operator<<(ostream& os, Polynomial& x);
 
 private:
     Term* head;
-
     void Attach(int coef, int exp);
     void Clear();
 };
@@ -236,32 +235,6 @@ ostream& operator<<(ostream& os, Polynomial& x) {
     return os;
 }
 
-int main() {
-    Polynomial p1, p2, sum, diff, prod;
-    cout << "Enter first polynomial (format: n c1 e1 c2 e2 ...): ";
-    cin >> p1;
-    cout << "Enter second polynomial (same format): ";
-    cin >> p2;
-
-    sum = p1 + p2;
-    diff = p1 - p2;
-    prod = p1 * p2;
-
-    cout << "\nP1(x) = " << p1 << endl;
-    cout << "P2(x) = " << p2 << endl;
-    cout << "P1(x) + P2(x) = " << sum << endl;
-    cout << "P1(x) - P2(x) = " << diff << endl;
-    cout << "P1(x) * P2(x) = " << prod << endl;
-
-    float x;
-    cout << "Enter a value of x to evaluate P1(x): ";
-    cin >> x;
-    cout << "P1(" << x << ") = " << p1.Evaluate(x) << endl;
-
-    return 0;
-}
-
-
 ```
 ## 效能分析
 
@@ -308,7 +281,6 @@ int main() {
 
     return 0;
 }
-
 
 ```
 預期輸出
