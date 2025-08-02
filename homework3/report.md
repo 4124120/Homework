@@ -33,8 +33,12 @@
 #include <cmath>
 using namespace std;
 
+class Polynomial; // Forward declaration
+
 class Term {
     friend class Polynomial;
+    friend ostream& operator<<(ostream& os, Polynomial& x); // 👈 允許 operator<< 存取私有成員
+    friend istream& operator>>(istream& is, Polynomial& x); // 👈 允許 operator>> 存取私有成員
 private:
     int coef;
     int exp;
@@ -43,32 +47,29 @@ private:
 
 class Polynomial {
 public:
-    Polynomial();
-    Polynomial(const Polynomial& a);
-    ~Polynomial();
-
-    friend istream& operator>>(istream& is, Polynomial& x);
-    friend ostream& operator<<(ostream& os, Polynomial& x);
-
-    const Polynomial& operator=(const Polynomial& a);
-    Polynomial operator+(const Polynomial& b) const;
-    Polynomial operator-(const Polynomial& b) const;
-    Polynomial operator*(const Polynomial& b) const;
-    float Evaluate(float x) const;
+    Polynomial();                                  // Constructor
+    Polynomial(const Polynomial& a);               // Copy Constructor
+    ~Polynomial();                                 // Destructor
+    const Polynomial& operator=(const Polynomial& a); // Assignment
+    Polynomial operator+(const Polynomial& b) const;   // Addition
+    Polynomial operator-(const Polynomial& b) const;   // Subtraction
+    Polynomial operator*(const Polynomial& b) const;   // Multiplication
+    float Evaluate(float x) const;                 // Evaluate
+    friend istream& operator>>(istream& is, Polynomial& x); // Input
+    friend ostream& operator<<(ostream& os, Polynomial& x); // Output
 
 private:
     Term* head;
-    void Clear();
+
     void Attach(int coef, int exp);
+    void Clear();
 };
 
-// Constructor
 Polynomial::Polynomial() {
     head = new Term;
     head->link = head;
 }
 
-// Copy Constructor
 Polynomial::Polynomial(const Polynomial& a) {
     head = new Term;
     head->link = head;
@@ -79,13 +80,11 @@ Polynomial::Polynomial(const Polynomial& a) {
     }
 }
 
-// Destructor
 Polynomial::~Polynomial() {
     Clear();
     delete head;
 }
 
-// 清除節點
 void Polynomial::Clear() {
     Term* curr = head->link;
     while (curr != head) {
@@ -96,37 +95,6 @@ void Polynomial::Clear() {
     head->link = head;
 }
 
-// 加入新項
-void Polynomial::Attach(int coef, int exp) {
-    Term* newTerm = new Term{coef, exp, head};
-    Term* curr = head;
-    while (curr->link != head) curr = curr->link;
-    curr->link = newTerm;
-}
-
-// 輸入運算子多載
-istream& operator>>(istream& is, Polynomial& x) {
-    int n, coef, exp;
-    is >> n;
-    for (int i = 0; i < n; ++i) {
-        is >> coef >> exp;
-        x.Attach(coef, exp);
-    }
-    return is;
-}
-
-// 輸出運算子多載
-ostream& operator<<(ostream& os, Polynomial& x) {
-    Term* curr = x.head->link;
-    while (curr != x.head) {
-        os << curr->coef << "x^" << curr->exp;
-        if (curr->link != x.head) os << " + ";
-        curr = curr->link;
-    }
-    return os;
-}
-
-// 賦值運算子
 const Polynomial& Polynomial::operator=(const Polynomial& a) {
     if (this != &a) {
         Clear();
@@ -139,115 +107,160 @@ const Polynomial& Polynomial::operator=(const Polynomial& a) {
     return *this;
 }
 
-// 多項式加法
+void Polynomial::Attach(int coef, int exp) {
+    Term* newTerm = new Term;
+    newTerm->coef = coef;
+    newTerm->exp = exp;
+    newTerm->link = head;
+
+    Term* curr = head;
+    while (curr->link != head) curr = curr->link;
+    curr->link = newTerm;
+}
+
 Polynomial Polynomial::operator+(const Polynomial& b) const {
     Polynomial result;
-    Term *a = head->link, *bTerm = b.head->link;
-    while (a != head && bTerm != b.head) {
-        if (a->exp > bTerm->exp) {
-            result.Attach(a->coef, a->exp);
-            a = a->link;
-        } else if (a->exp < bTerm->exp) {
-            result.Attach(bTerm->coef, bTerm->exp);
-            bTerm = bTerm->link;
+    Term* aPtr = head->link;
+    Term* bPtr = b.head->link;
+    while (aPtr != head && bPtr != b.head) {
+        if (aPtr->exp == bPtr->exp) {
+            int sum = aPtr->coef + bPtr->coef;
+            if (sum != 0)
+                result.Attach(sum, aPtr->exp);
+            aPtr = aPtr->link;
+            bPtr = bPtr->link;
+        } else if (aPtr->exp > bPtr->exp) {
+            result.Attach(aPtr->coef, aPtr->exp);
+            aPtr = aPtr->link;
         } else {
-            int sum = a->coef + bTerm->coef;
-            if (sum != 0) result.Attach(sum, a->exp);
-            a = a->link;
-            bTerm = bTerm->link;
+            result.Attach(bPtr->coef, bPtr->exp);
+            bPtr = bPtr->link;
         }
     }
-    while (a != head) {
-        result.Attach(a->coef, a->exp);
-        a = a->link;
+    while (aPtr != head) {
+        result.Attach(aPtr->coef, aPtr->exp);
+        aPtr = aPtr->link;
     }
-    while (bTerm != b.head) {
-        result.Attach(bTerm->coef, bTerm->exp);
-        bTerm = bTerm->link;
+    while (bPtr != b.head) {
+        result.Attach(bPtr->coef, bPtr->exp);
+        bPtr = bPtr->link;
     }
     return result;
 }
 
-// 多項式減法
 Polynomial Polynomial::operator-(const Polynomial& b) const {
     Polynomial result;
-    Term *a = head->link, *bTerm = b.head->link;
-    while (a != head && bTerm != b.head) {
-        if (a->exp > bTerm->exp) {
-            result.Attach(a->coef, a->exp);
-            a = a->link;
-        } else if (a->exp < bTerm->exp) {
-            result.Attach(-bTerm->coef, bTerm->exp);
-            bTerm = bTerm->link;
+    Term* aPtr = head->link;
+    Term* bPtr = b.head->link;
+    while (aPtr != head && bPtr != b.head) {
+        if (aPtr->exp == bPtr->exp) {
+            int diff = aPtr->coef - bPtr->coef;
+            if (diff != 0)
+                result.Attach(diff, aPtr->exp);
+            aPtr = aPtr->link;
+            bPtr = bPtr->link;
+        } else if (aPtr->exp > bPtr->exp) {
+            result.Attach(aPtr->coef, aPtr->exp);
+            aPtr = aPtr->link;
         } else {
-            int diff = a->coef - bTerm->coef;
-            if (diff != 0) result.Attach(diff, a->exp);
-            a = a->link;
-            bTerm = bTerm->link;
+            result.Attach(-bPtr->coef, bPtr->exp);
+            bPtr = bPtr->link;
         }
     }
-    while (a != head) {
-        result.Attach(a->coef, a->exp);
-        a = a->link;
+    while (aPtr != head) {
+        result.Attach(aPtr->coef, aPtr->exp);
+        aPtr = aPtr->link;
     }
-    while (bTerm != b.head) {
-        result.Attach(-bTerm->coef, bTerm->exp);
-        bTerm = bTerm->link;
+    while (bPtr != b.head) {
+        result.Attach(-bPtr->coef, bPtr->exp);
+        bPtr = bPtr->link;
     }
     return result;
 }
 
-// 多項式乘法
 Polynomial Polynomial::operator*(const Polynomial& b) const {
     Polynomial result;
-    for (Term* aTerm = head->link; aTerm != head; aTerm = aTerm->link) {
+    for (Term* aPtr = head->link; aPtr != head; aPtr = aPtr->link) {
         Polynomial temp;
-        for (Term* bTerm = b.head->link; bTerm != b.head; bTerm = bTerm->link) {
-            temp.Attach(aTerm->coef * bTerm->coef, aTerm->exp + bTerm->exp);
+        for (Term* bPtr = b.head->link; bPtr != b.head; bPtr = bPtr->link) {
+            temp.Attach(aPtr->coef * bPtr->coef, aPtr->exp + bPtr->exp);
         }
         result = result + temp;
     }
     return result;
 }
 
-// 多項式求值
 float Polynomial::Evaluate(float x) const {
     float sum = 0;
-    Term* curr = head->link;
-    while (curr != head) {
+    for (Term* curr = head->link; curr != head; curr = curr->link) {
         sum += curr->coef * pow(x, curr->exp);
-        curr = curr->link;
     }
     return sum;
 }
 
-// 主程式
+istream& operator>>(istream& is, Polynomial& x) {
+    int n, coef, exp;
+    is >> n;
+    for (int i = 0; i < n; ++i) {
+        is >> coef >> exp;
+        x.Attach(coef, exp);
+    }
+    return is;
+}
+
+ostream& operator<<(ostream& os, Polynomial& x) {
+    Term* curr = x.head->link;
+    if (curr == x.head) {
+        os << "0";
+        return os;
+    }
+    bool first = true;
+    while (curr != x.head) {
+        if (!first && curr->coef > 0)
+            os << " + ";
+        else if (curr->coef < 0)
+            os << " - ";
+        else if (!first)
+            os << " ";
+
+        if (abs(curr->coef) != 1 || curr->exp == 0)
+            os << abs(curr->coef);
+        if (curr->exp != 0) {
+            os << "x";
+            if (curr->exp != 1)
+                os << "^" << curr->exp;
+        }
+        first = false;
+        curr = curr->link;
+    }
+    return os;
+}
+
 int main() {
-    Polynomial p1, p2;
-    cout << "Enter Polynomial 1: ";
+    Polynomial p1, p2, sum, diff, prod;
+    cout << "Enter first polynomial (format: n c1 e1 c2 e2 ...): ";
     cin >> p1;
-    cout << "Enter Polynomial 2: ";
+    cout << "Enter second polynomial (same format): ";
     cin >> p2;
 
-    cout << "P1: " << p1 << endl;
-    cout << "P2: " << p2 << endl;
+    sum = p1 + p2;
+    diff = p1 - p2;
+    prod = p1 * p2;
 
-    Polynomial sum = p1 + p2;
-    cout << "P1 + P2 = " << sum << endl;
-
-    Polynomial diff = p1 - p2;
-    cout << "P1 - P2 = " << diff << endl;
-
-    Polynomial prod = p1 * p2;
-    cout << "P1 * P2 = " << prod << endl;
+    cout << "\nP1(x) = " << p1 << endl;
+    cout << "P2(x) = " << p2 << endl;
+    cout << "P1(x) + P2(x) = " << sum << endl;
+    cout << "P1(x) - P2(x) = " << diff << endl;
+    cout << "P1(x) * P2(x) = " << prod << endl;
 
     float x;
-    cout << "Enter x to evaluate P1: ";
+    cout << "Enter a value of x to evaluate P1(x): ";
     cin >> x;
     cout << "P1(" << x << ") = " << p1.Evaluate(x) << endl;
 
     return 0;
 }
+
 
 ```
 ## 效能分析
@@ -272,25 +285,30 @@ int main() {
 
 ```cpp
 int main() {
-    Polynomial p1, p2;
-    cout << "Enter Polynomial 1: ";
+    Polynomial p1, p2, sum, diff, prod;
+    cout << "Enter first polynomial (format: n c1 e1 c2 e2 ...): ";
     cin >> p1;
-    cout << "Enter Polynomial 2: ";
+    cout << "Enter second polynomial (same format): ";
     cin >> p2;
 
-    cout << "P1: " << p1 << endl;
-    cout << "P2: " << p2 << endl;
+    sum = p1 + p2;
+    diff = p1 - p2;
+    prod = p1 * p2;
 
-    Polynomial sum = p1 + p2;
-    cout << "P1 + P2 = " << sum << endl;
+    cout << "\nP1(x) = " << p1 << endl;
+    cout << "P2(x) = " << p2 << endl;
+    cout << "P1(x) + P2(x) = " << sum << endl;
+    cout << "P1(x) - P2(x) = " << diff << endl;
+    cout << "P1(x) * P2(x) = " << prod << endl;
 
     float x;
-    cout << "Enter x to evaluate P1: ";
+    cout << "Enter a value of x to evaluate P1(x): ";
     cin >> x;
     cout << "P1(" << x << ") = " << p1.Evaluate(x) << endl;
 
     return 0;
 }
+
 
 ```
 預期輸出
