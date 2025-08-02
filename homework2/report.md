@@ -236,20 +236,6 @@ Product: 3x^4 + 2x^3 + 12x^2 + 8x^1
 
 P1(2) = 16
 
-
-### 編譯與執行指令
-
-```shell
-# 編譯遞迴版
-g++ ackermann_recursive.cpp -o ack_r
-./ack_r
-
-# 編譯非遞迴版
-g++ ackermann_nonrecursive.cpp -o ack_nr
-./ack_nr
-
-```
-
 ## 申論及開發報告
 
 ### 使用的資料結構與演算法說明
